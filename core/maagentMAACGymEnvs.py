@@ -1,4 +1,6 @@
 import multiprocessing
+#from multiprocessing import set_start_method
+#set_start_method("spawn")
 from torch import Tensor
 from torch.autograd import Variable
 from utils.replay_memory_MAACGymEnvs import Memory

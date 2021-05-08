@@ -13,16 +13,16 @@ class StandardEnv():
         self.numAgents = len(env.observation_space)
     
     def seed(self,n):
-        self.env._seed(n)
+        self.env.seed(n)
     
     def step(self,action_n):
-        return self.env._step(action_n)
+        return self.env.step(action_n)
     
     def reset(self):
-        return self.env._reset()
+        return self.env.reset()
     
     def render(self, mode='human', close=False):
-        return self.env._render(mode=mode, close=close)
+        return self.env.render(mode=mode, close=close)
     
     def _take_action(self, action):
         pass

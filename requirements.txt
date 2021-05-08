@@ -1,0 +1,15 @@
+seaborn
+pytorch
+pandas
+matplotlib
+tensorflow >= 1.4
+ipython
+gym[mujoco,atari,classic_control]
+
+
+
+# git clone https://github.com/shariqiqbal2810/multiagent-particle-envs
+# git clone https://github.com/openai/multiagent-particle-envs.git
+# baselines
+# pip install gym-foo
+# https://github.com/shariqiqbal2810/MAAC.git MAAC -> envs/mpe_scenarious

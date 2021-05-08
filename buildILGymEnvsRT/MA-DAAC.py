@@ -9,7 +9,7 @@ import time
 import json
 import numpy as np
 import pandas as pd
-proj_direc = '/code/'
+proj_direc = '/data/akvasov/bm3il/'
 sys.path.append(os.path.abspath(os.path.join(
     proj_direc+'buildILGymEnvsRT', '..')))
 from utils import *
@@ -43,7 +43,7 @@ class ARGS():
         # hyper-parameters for IL
         self.render = False
         self.log_interval = 1
-        self.gpu_index = 0
+        self.gpu_index = 2
         self.seed = 1
         self.env_name = 'multi_speaker_listener'
         self.expert_traj_path = proj_direc + "buildILGymEnvsRT/data/" + self.env_name + "/exp_traj2.pkl"
@@ -52,7 +52,7 @@ class ARGS():
         self.reset_memory_interval = 10
         self.min_batch_size = 800 #4000
         self.sample_size = 800
-        self.num_threads = 8 #4
+        self.num_threads = 2 #4
         self.epochs = 6
         self.discriminator_epochs = 5 #5
         self.generator_epochs = 10

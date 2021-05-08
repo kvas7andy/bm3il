@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 from xvfbwrapper import Xvfb
 #%matplotlib inline
-proj_direc = '/code/'
+proj_direc = '/data/akvasov/bm3il/'
 sys.path.append(os.path.abspath(os.path.join(
     proj_direc+'buildILGymEnvs', '..')))
 from utils import *
