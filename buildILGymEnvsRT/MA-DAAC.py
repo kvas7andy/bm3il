@@ -45,18 +45,18 @@ class ARGS():
         self.log_interval = 1
         self.gpu_index = 2
         self.seed = 1
-        self.env_name = 'multi_speaker_listener'
-        self.expert_traj_path = proj_direc + "buildILGymEnvsRT/data/" + self.env_name + "/exp_traj2.pkl"
+        self.env_name = 'multi_speaker_listener_2'
+        self.expert_traj_path = proj_direc + "buildILGymEnvsRT/data/" + self.env_name + "/exp_traj2_2.pkl"
         # hyper-parameters for MAIL
         self.expert_traj_len = int(3e4) #1e4
         self.reset_memory_interval = 10
         self.min_batch_size = 800 #4000
         self.sample_size = 800
-        self.num_threads = 2 #4
+        self.num_threads = 1 #4
         self.epochs = 6
         self.discriminator_epochs = 5 #5
         self.generator_epochs = 10
-        self.max_iter_num = 6000 #int(1e4) #6000
+        self.max_iter_num = 1000 #int(1e4) #6000
         self.load_checkpoint = False
         self.save_checkpoint_interval = 100
         # GMMIL
@@ -76,6 +76,7 @@ if cuda:
     torch.cuda.set_device(args.gpu_index)
 discrim_criterion = torch.nn.BCELoss()
 to_device(device, discrim_criterion)
+torch.set_num_threads(args.num_threads)
 """environment"""
 rawEnv = make_env(args.env_name, discrete_action=True)
 env = StandardEnv(rawEnv)
@@ -198,7 +199,7 @@ def main_loop():
         for i_iter in range(args.max_iter_num):
             """generate multiple trajectories that reach the minimum batch_size"""
             batch, _, log = agentsInteract.collect_samples(args.min_batch_size, args.episode_length, cuda, running_memory=running_memory)
-            t0 = time.time()        
+            t0 = time.time()
             update_params(batch, agentModels, discrimList, agentsInteract)
             t1 = time.time()
             if (i_iter+1) % args.log_interval == 0:
