@@ -13,3 +13,4 @@ gym[mujoco,atari,classic_control]
 # baselines
 # pip install gym-foo
 # https://github.com/shariqiqbal2810/MAAC.git MAAC -> envs/mpe_scenarious
+# Change in multiagent-particle-envs this https://code.ihub.org.cn/projects/892/repository/commit_diff?changeset=d11196a896d20ebcd5e4e7a4aa6f3bc7ac96d1b1

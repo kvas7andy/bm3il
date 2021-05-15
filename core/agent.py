@@ -142,6 +142,9 @@ class Agent:
             pid, worker_memory, worker_log = queue.get()
             worker_memories[pid - 1] = worker_memory
             worker_logs[pid - 1] = worker_log
+        for worker in workers:
+            worker.join()
+
         for worker_memory in worker_memories:
             memory.append(worker_memory)
         batch = memory.sample()
