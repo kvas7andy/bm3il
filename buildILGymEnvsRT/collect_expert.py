@@ -43,7 +43,7 @@ class ARGS():
         self.log_interval = 1
         self.gpu_index = 2
         self.seed = 1
-        self.env_name = 'diverse_spread' #'simple_spread' # 'fullobs_collect_treasure', 'multi_speaker_listener'
+        self.env_name = 'diverse_spread_v1' #'simple_spread' # 'fullobs_collect_treasure', 'multi_speaker_listener'
         # hyper-parameters to be tuned for only collecting exeprt trajectories
         self.reset_memory_interval = 10
         self.min_batch_size = 800 #4000
