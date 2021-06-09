@@ -172,6 +172,9 @@ class AgentsInteraction:
             pid, worker_memory, worker_log = queue.get()
             worker_memories[pid - 1] = worker_memory
             worker_logs[pid - 1] = worker_log
+        for worker in workers:
+            worker.join()
+
         for worker_memory in worker_memories:
             for ai in range(self.numAgents):
                 memory[ai].append(worker_memory[ai])

@@ -9,6 +9,10 @@ import time
 import json
 import numpy as np
 import pandas as pd
+import sys
+from datetime import datetime
+from torch.utils.tensorboard import SummaryWriter
+
 proj_direc = '/data/akvasov/bm3il/'
 sys.path.append(os.path.abspath(os.path.join(
     proj_direc+'buildILGymEnvsRT', '..')))
@@ -46,25 +50,29 @@ class ARGS():
         self.gpu_index = 2
         self.seed = 1
         self.env_name = 'multi_speaker_listener_2'
-        self.expert_traj_path = proj_direc + "buildILGymEnvsRT/data/" + self.env_name + "/exp_traj2_2.pkl"
+        self.expert_traj_path = os.path.join(proj_direc, "buildILGymEnvsRT/data", self.env_name, "exp_traj2" + \
+                                ("_2" if "_2" in self.env_name else "") +".pkl")
         # hyper-parameters for MAIL
         self.expert_traj_len = int(3e4) #1e4
         self.reset_memory_interval = 10
         self.min_batch_size = 800 #4000
         self.sample_size = 800
-        self.num_threads = 1 #4
-        self.epochs = 6
+        self.num_threads = 4 #4
+        self.epochs = 4
         self.discriminator_epochs = 5 #5
         self.generator_epochs = 10
-        self.max_iter_num = 1000 #int(1e4) #6000
+        self.max_iter_num = 2500 #int(1e4) #6000
         self.load_checkpoint = False
         self.save_checkpoint_interval = 100
         # GMMIL
         self.sigma_list = [sigma / 1.0 for sigma in [1, 2, 4, 8, 16]]
         # save directories
-        self.checkpoint_path = proj_direc + "buildILGymEnvsRT/data/" + self.env_name + "/checkpoint_GAILac3"
+        dt_string = datetime.now().strftime("%d_%m_%Y_%H:%M:%S")
+        self.exper_path = os.path.join(proj_direc, "buildILGymEnvsRT/data", self.env_name, dt_string)
+        self.checkpoint_path =os.path.join(self.exper_path, "checkpoint_GAILac3")
         self.description = 'GAILac'
-        self.save_data_path = proj_direc+"buildILGymEnvsRT/data/"+self.env_name+"_GAILac3.pkl"
+        self.save_data_path = os.path.join(self.exper_path, self.env_name + "_GAILac3.pkl")
+        self.save_or_not = False
         
         
 args = ARGS()
@@ -76,7 +84,7 @@ if cuda:
     torch.cuda.set_device(args.gpu_index)
 discrim_criterion = torch.nn.BCELoss()
 to_device(device, discrim_criterion)
-torch.set_num_threads(args.num_threads)
+#torch.set_num_threads(args.num_threads)
 """environment"""
 rawEnv = make_env(args.env_name, discrete_action=True)
 env = StandardEnv(rawEnv)
@@ -89,7 +97,10 @@ torch.manual_seed(args.seed)
 env.seed(args.seed)
 """create save directory"""
 try:
-    os.makedirs(os.path.abspath(os.path.join(args.expert_traj_path,'..')))
+    os.makedirs(os.path.abspath(os.path.join(args.expert_traj_path,'..')), exist_ok=True)
+    if args.save_or_not:
+        os.makedirs(args.exper_path, exist_ok=True)
+        os.makedirs(os.path.join(args.exper_path, "logs"), exist_ok=True)
 except OSError as e:
     if e.errno != errno.EEXIST:
         raise
@@ -100,6 +111,11 @@ for ai in range(numAgents):
     expert_traj_ai = pd.read_pickle(expert_traj_path_ai).to_numpy()
     expert_traj_ai.dtype='float'
     expert_traj.append(expert_traj_ai[:args.expert_traj_len,:])
+"""redirecting output"""
+writer = None
+if args.save_or_not:
+    sys.stdout = open(os.path.join(args.exper_path, "logs", "log.txt"), 'w')
+    writer = SummaryWriter(os.path.join(args.exper_path, "logs"))
 
     
 class DiscriminatorWrap:
@@ -145,7 +161,7 @@ def create_networks():
     return agentModels, discrimList, agentsInteract
     
         
-def update_params(batch, agentModels, discrimList, agentsInteract):
+def update_params(batch, agentModels, discrimList, agentsInteract, writer):
     """RL learn policy"""
     agentModels.prep_training(device=device.type)
     for _ in range(args.generator_epochs):
@@ -158,8 +174,8 @@ def update_params(batch, agentModels, discrimList, agentsInteract):
             rewards = -torch.log(g_o).to(dtype).to(device).detach()
             # use this reward -> il, comment thie line -> rl
             sample[2][ai] = rewards
-        agentModels.update_critic(sample)
-        agentModels.update_policies(sample)
+        agentModels.update_critic(sample, logger=writer)
+        agentModels.update_policies(sample, logger=writer)
         agentModels.update_all_targets()
     agentModels.prep_rollouts(device='cpu')
     
@@ -182,7 +198,8 @@ def update_params(batch, agentModels, discrimList, agentsInteract):
     
     
 def main_loop(): 
-    time_list = list()
+    iter_list = list()
+    time_list= list()
     reward_list = list()
     label_list = list()
     rMean_list = list()
@@ -194,22 +211,23 @@ def main_loop():
         running_memory = [Memory() for _ in range(numAgents)]
         print(f"number of agents: {numAgents}\ndiscriminator network: {discrimList.discrimNets[0]}")
 
-        
+        t_start = time.time()
         # train expert policy
         for i_iter in range(args.max_iter_num):
             """generate multiple trajectories that reach the minimum batch_size"""
             batch, _, log = agentsInteract.collect_samples(args.min_batch_size, args.episode_length, cuda, running_memory=running_memory)
             t0 = time.time()
-            update_params(batch, agentModels, discrimList, agentsInteract)
+            update_params(batch, agentModels, discrimList, agentsInteract, writer)
             t1 = time.time()
             if (i_iter+1) % args.log_interval == 0:
                 r_mean = np.mean(log['avg_reward'])
                 r_std = np.std(log['avg_reward'])
-                print('{}\tT_sample {:.2f}\tT_update {:.2f}\tR_avg {:.2f} +- {:.2f}, {:.2f}, {:.2f}, {:.2f}\tEpisodes {:.2f}\tSteps {:.2f}\t running_memory len {}'.format(
-                    i_iter, log['sample_time'], t1 - t0, r_mean, r_std, log['avg_reward'][0], log['avg_reward'][1], log['avg_reward'][2],\
-                    log['num_episodes'], log['num_steps'], len(running_memory[0])))
+                print('{}\tT_sample {:.2f}\tT_update {:.2f}\tT_all {:.2f}\tR_avg {:.2f} +- {:.2f}, {:.2f}, {:.2f}, {:.2f}\tEpisodes {:.2f}\tSteps {:.2f}\t running_memory len {}'.format(
+                    i_iter, log['sample_time'], t1 - t0, log['sample_time'] + t1 - t0, r_mean, r_std, log['avg_reward'][0], log['avg_reward'][1], log['avg_reward'][2],\
+                    log['num_episodes'], log['num_steps'], len(running_memory[0])), flush=True)
             reward_list.append(log['avg_reward'])
-            time_list.append(i_iter)
+            iter_list.append(i_iter)
+            time_list.append(t_start-t1)
             label_list.append(args.description[0])
             rList.append(r_mean)
             stdList.append(r_std)
@@ -220,7 +238,8 @@ def main_loop():
             # save checkpoint
             if args.save_checkpoint_interval > 0 and (i_iter+1) % args.save_checkpoint_interval == 0:
                 checkpoint_path_epoch = args.checkpoint_path + '_epoch' + str(e_iter) + '.tar'
-                agentModels.save(checkpoint_path_epoch)
+                if args.save_or_not:
+                    agentModels.save(checkpoint_path_epoch)
                 agentModels.prep_rollouts(device='cpu')
                 checkpointDictDiscrimNets = { 'discrimNets_'+str(k) : v.state_dict() for k,v in enumerate(discrimList.discrimNets)}
                 checkpointDictOptimizerDiscrims = { 'optimizerDiscrims_'+str(k) : v.state_dict() for k,v in enumerate(discrimList.optimizerDiscrims)}
@@ -228,9 +247,13 @@ def main_loop():
                 checkpointDictAll.update(checkpointDictDiscrimNets)
                 checkpointDictAll.update(checkpointDictOptimizerDiscrims)
                 checkpointD_path_epoch = args.checkpoint_path + 'D_epoch' + str(e_iter) + '.tar'
-                torch.save(checkpointDictAll,checkpointD_path_epoch)
+                if args.save_or_not:
+                    torch.save(checkpointDictAll,checkpointD_path_epoch)
             """clean up gpu memory"""
             torch.cuda.empty_cache()
+            if args.save_checkpoint_interval > 0 and (i_iter + 1) % (args.save_checkpoint_interval / 10) == 0:
+                if writer is not None:
+                    writer.flush()
             
         
         # save training epoch
@@ -241,10 +264,12 @@ def main_loop():
         rMean_list.append(rMean)
         rStd_list.append(rStd)
         print('rMean {:.2f}\trStd {:.2f}'.format(rMean,rStd))
-        data_dic = {'time': time_list, 'reward': reward_list, 'Algorithms': label_list}
+        data_dic = {'iter': iter_list, 'time': time_list, 'reward': reward_list, 'Algorithms': label_list}
         df = pd.DataFrame(data_dic)
-        df.to_pickle(args.save_data_path)    
+        if args.save_or_not:
+            df.to_pickle(args.save_data_path)
     print('Epochs rMean {:.2f}\trStd {:.2f}'.format(np.mean(rMean_list),np.mean(rStd_list)))
-    
+    if writer is not None:
+        writer.close()
     
 main_loop()
