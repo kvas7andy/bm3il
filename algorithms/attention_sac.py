@@ -313,19 +313,25 @@ class AttentionSAC(object):
         return instance
 
     @classmethod
-    def init_from_save(cls, filename, load_critic=False):
+    def init_from_save(cls, filename, load_critic=False, device='cpu'):
         """
         Instantiate instance of this class from file created by 'save' method
         """
-        save_dict = torch.load(filename)
+        save_dict = torch.load(filename, map_location=device)
         instance = cls(**save_dict['init_dict'])
         instance.init_dict = save_dict['init_dict']
         for a, params in zip(instance.agents, save_dict['agent_params']):
-            a.load_params(params)
+            a.load_params(params, device=device)
+        instance.pol_dev = device.type
+        instance.trgt_pol_dev = device.type
 
         if load_critic:
             critic_params = save_dict['critic_params']
             instance.critic.load_state_dict(critic_params['critic'])
+            instance.critic.to(device)
+            instance.critic_dev = device.type
             instance.target_critic.load_state_dict(critic_params['target_critic'])
+            instance.target_critic.to(device)
+            instance.trgt_critic_dev = device.type
             instance.critic_optimizer.load_state_dict(critic_params['critic_optimizer'])
         return instance

@@ -22,7 +22,8 @@ class StandardEnv():
         return self.env.reset()
     
     def render(self, mode='human', close=False):
-        return self.env.render(mode=mode, close=close)
+        # TODO! we need 'close' in render?
+        return self.env.render(mode=mode)
     
     def _take_action(self, action):
         pass
