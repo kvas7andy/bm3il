@@ -23,7 +23,9 @@ from utils.make_env import make_env
 from utils.env_wrappers import StandardEnv
 from utils.replay_memory_MAACGymEnvs import Memory
 from models.mlp_discriminator import Discriminator
-from utils.attention_reward import AttentionReward
+
+from algorithms.attention_sac_latent import AttentionSAC as AttentionSACLatent
+import utils.config as config
 
 
 class ARGS():
@@ -68,7 +70,7 @@ class ARGS():
         self.sigma_list = [sigma / 1.0 for sigma in [1, 2, 4, 8, 16]]
         # save directories
         dt_string = datetime.now().strftime("%d_%m_%Y_%H:%M:%S")
-        self.exper_path = os.path.join(proj_direc, "buildILGymEnvsRT/data", self.env_name, dt_string)
+        self.exper_path = os.path.join(proj_direc, "buildILGymEnvsRT/data", self.env_name, "MAAC2", dt_string)
         self.checkpoint_path =os.path.join(self.exper_path, "checkpoint_GAILac3")
         self.description = 'GAILac'
         self.save_data_path = os.path.join(self.exper_path, self.env_name + "_GAILac3.pkl")
