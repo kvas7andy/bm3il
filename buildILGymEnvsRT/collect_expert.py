@@ -1,4 +1,5 @@
 #import torch
+import copy
 import os
 #import gym
 #import gym_foo
@@ -32,7 +33,7 @@ import utils.config as config
 class ARGS():
     def __init__(self, kwargs):
         # hyper-parameters for MAAC
-        self.rnn_true = True
+        # self.rnn_true = True
         self.pol_hidden_dim = 128 # 128
         self.critic_hidden_dim = 128 # 128
         self.attend_heads = 4
@@ -81,7 +82,7 @@ class ARGS():
         self.save_data_path = os.path.join(self.exper_path, self.env_name + "_vanilaMAAC_rewards.pkl")
         self.save_or_not = True
         
-params = deepcopy(sys.argv)
+params = copy.deepcopy(sys.argv)
 config_dict = config.create_config_dict(params)
 #config_obj = config.obj(config_dict)
 args = ARGS(config_dict)
@@ -126,7 +127,7 @@ print(vars(args))
 def update_params(batch, agentModels, agentsInteract):
     agentModels.prep_training(device=device.type)
     for _ in range(args.generator_epochs):
-        episode_l_sample = args.episode_length if args.rnn_true else None
+        episode_l_sample = args.episode_length if args.latent_true else None
         sample = agentsInteract.batch2TensorSample(batch, cuda, sample_size=args.sample_size, episode_l_sample=episode_l_sample)
         #print("Sample size from args {} and from drawn samples {} ".format(args.sample_size, sample[0][0].shape[0]))
         agentModels.update_critic(sample, logger=writer)

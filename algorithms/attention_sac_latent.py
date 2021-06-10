@@ -574,7 +574,7 @@ class AttentionSACLatent(object):
         if "n_agents" in vars(args):
             if len(env.action_space) != args.n_agents:
                 print("WARNING:wrong number of agents in args, should be {} but got {}".format(len(env.action_space), args.n_agents))
-        args.n_agents =  len(env.action_space)
+        args.n_agents =  len(env.observation_space)
 
         if "n_actions" in vars(args):
             if len(env.action_space[0].n) != args.n_agctions:
