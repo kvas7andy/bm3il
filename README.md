@@ -1,5 +1,6 @@
-# bm3il
-Bayesian Multi-type Mean Field Multi-agent Imitation Learning
+# bm3il - implemetation and modification for new paper
+Original implementation with first commit from NIPS 2020 sumbision of paper
+"Bayesian Multi-type Mean Field Multi-agent Imitation Learning"
 
 
 buildILBerlinGAIL: the codes for the transportation environment (Berlin)
