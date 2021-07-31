@@ -1,5 +1,7 @@
 # bm3il - implemetation and modification for new paper
-Original implementation with first commit from NIPS 2020 sumbision of paper
+PyTorch implementation
+
+Originally taken with first commit from NIPS 2020 sumbision of paper
 "Bayesian Multi-type Mean Field Multi-agent Imitation Learning"
 
 
