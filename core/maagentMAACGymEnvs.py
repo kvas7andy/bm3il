@@ -53,6 +53,10 @@ def collect_samples(numAgents, episode_length, pid, queue, env, agentModels, cus
                 torch_action = agentModels.step(torch_obs, explore=True)
                 action = [ac.data.numpy()[0] for ac in torch_action]
             next_state, reward, done, _ = env.step(action)
+            #if not num_steps % 10:
+                #print(reward)
+            #if t+1 == episode_length:
+            #    done = [1 for d in done]
             reward_episode = [sum(x) for x in zip(reward_episode,reward)]
             
             if custom_reward is not None:
@@ -128,12 +132,13 @@ class AgentsInteraction:
         self.render = render
         self.num_threads = num_threads
     
-    def batch2TensorSample(self,batch,cuda,sample_size = None, only_recent = False):
+    def batch2TensorSample(self,batch,cuda,sample_size = None, only_recent = False, random = True, norm_rews = False):
         # if only recent == True, we only random shuffle the most recent sample_size
         if sample_size:
             if only_recent:
                 sampleIdx = np.arange(start=len(batch[0][0])-sample_size,stop=len(batch[0][0]))
-                np.random.shuffle(sampleIdx)
+                if random:
+                    np.random.shuffle(sampleIdx)
             else:
                 sampleIdx = np.random.choice(len(batch[0][0]),size=sample_size,replace=False)
         else:
@@ -147,7 +152,11 @@ class AgentsInteraction:
             obsAi, acsAi, rewsAi, next_obsAi, donesAi = sampleAi
             obs.append(cast(obsAi)[sampleIdx,:])
             acs.append(cast(acsAi)[sampleIdx,:])
-            rews.append(cast(rewsAi)[sampleIdx])
+            if norm_rews:
+                rewsAi = (cast(rewsAi) - cast(rewsAi).mean()) / cast(rewsAi).std()
+                rews.append(rewsAi[sampleIdx])
+            else:
+                rews.append(cast(rewsAi)[sampleIdx])
             next_obs.append(cast(next_obsAi)[sampleIdx,:])
             dones.append(cast(donesAi)[sampleIdx])
         return([obs, acs, rews, next_obs, dones])

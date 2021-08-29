@@ -21,7 +21,8 @@ class Memory(object):
             return Transition(*zip(*self.memory))
         else:
             random_batch = random.sample(self.memory, batch_size)
-            return Transition(*zip(*random_batch))
+            return Transition(*zip(*random_batch)) # Transition(state=(s_n1, s_n2,..., s_n{batch_size},
+                                                                #action =  (a_n1, a_n2,..., a_n{batch_size}), ... )
         
     def reset(self):
         self.memory.clear()

@@ -49,15 +49,15 @@ def make_env(scenario_name, benchmark=False, discrete_action=False):
         env = MultiAgentEnv(world, reset_callback=scenario.reset_world,
                             reward_callback=scenario.reward,
                             observation_callback=scenario.observation,
-                            #post_step_callback=post_step, # to be commented in latest gym version
-                            info_callback=scenario.benchmark_data
-                            #, discrete_action=discrete_action #
+                            post_step_callback=post_step, # to be commented in latest gym version
+                            info_callback=scenario.benchmark_data,
+                            discrete_action=discrete_action #
                            )
     else:
         env = MultiAgentEnv(world, reset_callback=scenario.reset_world,
                             reward_callback=scenario.reward,
                             observation_callback=scenario.observation,
-                            #post_step_callback=post_step, # to be commented in latest gym version
-                            #discrete_action=discrete_action #
+                            post_step_callback=post_step, #
+                            discrete_action=discrete_action #
                            )
     return env

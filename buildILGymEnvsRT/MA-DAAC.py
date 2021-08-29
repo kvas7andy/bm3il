@@ -1,3 +1,4 @@
+import argparse
 import torch
 import os
 import gym
@@ -24,99 +25,6 @@ from utils.env_wrappers import StandardEnv
 from utils.replay_memory_MAACGymEnvs import Memory
 from models.mlp_discriminator import Discriminator
 from utils.attention_reward import AttentionReward
-
-
-class ARGS():
-    def __init__(self):
-        # hyper-parameters for MAAC
-        self.pol_hidden_dim = 128
-        self.critic_hidden_dim = 128
-        self.attend_heads = 4
-        self.pi_lr = 3e-3 #0.001
-        self.q_lr = 3e-3 #0.001
-        # target network learn rate
-        self.tau = 3e-3 #1e-3
-        self.gamma = 0.99
-        self.reward_scale = 100
-        self.episode_length = 25
-        # attention reward
-        self.discrim_hidden_dim = 32
-        self.discrim_attend_heads = 2
-        self.discrim_out_dim = 1
-        self.d_lr = 1e-3
-        # hyper-parameters for IL
-        self.render = False
-        self.log_interval = 1
-        self.gpu_index = 2
-        self.seed = 1
-        self.env_name = 'multi_speaker_listener_2'
-        self.expert_traj_path = os.path.join(proj_direc, "buildILGymEnvsRT/data", self.env_name, "exp_traj2" + \
-                                ("_2" if "_2" in self.env_name else "") +".pkl")
-        # hyper-parameters for MAIL
-        self.expert_traj_len = int(3e4) #1e4
-        self.reset_memory_interval = 10
-        self.min_batch_size = 800 #4000
-        self.sample_size = 800
-        self.num_threads = 4 #4
-        self.epochs = 4
-        self.discriminator_epochs = 5 #5
-        self.generator_epochs = 10
-        self.max_iter_num = 2500 #int(1e4) #6000
-        self.load_checkpoint = False
-        self.save_checkpoint_interval = 100
-        # GMMIL
-        self.sigma_list = [sigma / 1.0 for sigma in [1, 2, 4, 8, 16]]
-        # save directories
-        dt_string = datetime.now().strftime("%d_%m_%Y_%H:%M:%S")
-        self.exper_path = os.path.join(proj_direc, "buildILGymEnvsRT/data", self.env_name, dt_string)
-        self.checkpoint_path =os.path.join(self.exper_path, "checkpoint_GAILac3")
-        self.description = 'GAILac'
-        self.save_data_path = os.path.join(self.exper_path, self.env_name + "_GAILac3.pkl")
-        self.save_or_not = False
-        
-        
-args = ARGS()
-dtype = torch.float
-torch.set_default_dtype(dtype)
-cuda = True if torch.cuda.is_available() else False
-device = torch.device('cuda', index=args.gpu_index) if cuda else torch.device('cpu')
-if cuda:
-    torch.cuda.set_device(args.gpu_index)
-discrim_criterion = torch.nn.BCELoss()
-to_device(device, discrim_criterion)
-#torch.set_num_threads(args.num_threads)
-"""environment"""
-rawEnv = make_env(args.env_name, discrete_action=True)
-env = StandardEnv(rawEnv)
-numAgents = len(env.observation_space)
-action_dims = [env.action_space[ai].n for ai in range(numAgents)]
-observation_dims = [env.observation_space[ai].shape[0] for ai in range(numAgents)]
-"""seeding"""
-np.random.seed(args.seed)
-torch.manual_seed(args.seed)
-env.seed(args.seed)
-"""create save directory"""
-try:
-    os.makedirs(os.path.abspath(os.path.join(args.expert_traj_path,'..')), exist_ok=True)
-    if args.save_or_not:
-        os.makedirs(args.exper_path, exist_ok=True)
-        os.makedirs(os.path.join(args.exper_path, "logs"), exist_ok=True)
-except OSError as e:
-    if e.errno != errno.EEXIST:
-        raise
-"""load expert trajectory"""
-expert_traj = list()
-for ai in range(numAgents):
-    expert_traj_path_ai = args.expert_traj_path + '_agent_' + str(ai)
-    expert_traj_ai = pd.read_pickle(expert_traj_path_ai).to_numpy()
-    expert_traj_ai.dtype='float'
-    expert_traj.append(expert_traj_ai[:args.expert_traj_len,:])
-"""redirecting output"""
-writer = None
-if args.save_or_not:
-    sys.stdout = open(os.path.join(args.exper_path, "logs", "log.txt"), 'w')
-    writer = SummaryWriter(os.path.join(args.exper_path, "logs"))
-
     
 class DiscriminatorWrap:
     def __init__(self,numAgents):
@@ -219,9 +127,9 @@ def main_loop():
             t0 = time.time()
             update_params(batch, agentModels, discrimList, agentsInteract, writer)
             t1 = time.time()
+            r_mean = np.mean(log['avg_reward'])
+            r_std = np.std(log['avg_reward'])
             if (i_iter+1) % args.log_interval == 0:
-                r_mean = np.mean(log['avg_reward'])
-                r_std = np.std(log['avg_reward'])
                 print('{}\tT_sample {:.2f}\tT_update {:.2f}\tT_all {:.2f}\tR_avg {:.2f} +- {:.2f}, {:.2f}, {:.2f}, {:.2f}\tEpisodes {:.2f}\tSteps {:.2f}\t running_memory len {}'.format(
                     i_iter, log['sample_time'], t1 - t0, log['sample_time'] + t1 - t0, r_mean, r_std, log['avg_reward'][0], log['avg_reward'][1], log['avg_reward'][2],\
                     log['num_episodes'], log['num_steps'], len(running_memory[0])), flush=True)
@@ -271,5 +179,129 @@ def main_loop():
     print('Epochs rMean {:.2f}\trStd {:.2f}'.format(np.mean(rMean_list),np.mean(rStd_list)))
     if writer is not None:
         writer.close()
-    
-main_loop()
+
+class ARGS():
+    def __init__(self, config=None):
+        # hyper-parameters for MAAC
+        self.pol_hidden_dim = 128
+        self.critic_hidden_dim = 128
+        self.attend_heads = 4
+        self.pi_lr = 3e-3 #1e-3
+        self.q_lr = 3e-3 #1e-3
+        # target network learn rate
+        self.tau = 3e-3 #1e-3
+        self.gamma = 0.99
+        self.reward_scale = 100
+        self.episode_length = 25
+        # attention reward
+        self.discrim_hidden_dim = 32
+        self.discrim_attend_heads = 2
+        self.discrim_out_dim = 1
+        self.d_lr = 1e-3
+        # hyper-parameters for IL
+        self.render = False
+        self.log_interval = 100
+        self.gpu_index = 2
+        self.seed = 1
+        # environment params
+        self.env_name = config.env_name if config is not None and hasattr(config, 'env_name') and config.env_name is not None\
+            else 'multi_speaker_listener'
+        self.time_for_expert = 'collect_samples/06_08_2021_14:15:36'
+        self.expert_traj_path = os.path.join(proj_direc, "buildILGymEnvsRT/data", self.env_name, self.time_for_expert , "exp_traj2" + \
+                                ("_2" if "_2" in self.env_name else "") +".pkl")
+        # hyper-parameters for MAIL
+        self.expert_a = int(3e4) #1e4
+        self.reset_memory_interval = 10
+        self.min_batch_size = 800 #4000
+        self.sample_size = 800
+        self.num_threads = 8 #4
+        self.epochs = 4
+        self.discriminator_epochs = 5 #5
+        self.generator_epochs = 10
+        self.max_iter_num = 6000 #int(1e4) #6000
+        self.load_checkpoint = False
+        self.save_checkpoint_interval = 100
+        # GMMIL
+        self.sigma_list = [sigma / 1.0 for sigma in [1, 2, 4, 8, 16]]
+        # save directories
+        dt_string = datetime.now().strftime("%d_%m_%Y_%H:%M:%S")
+        self.exper_path = os.path.join(proj_direc, "buildILGymEnvsRT/data", self.env_name, dt_string)
+        self.checkpoint_path =os.path.join(self.exper_path, "checkpoint_GAILac3")
+        self.description = 'GAILac'
+        self.save_data_path = os.path.join(self.exper_path, self.env_name + "_GAILac3.pkl")
+        self.save_or_not = self.save_or_not = config.save_true if config is not None and hasattr(config, 'save_true') \
+            else False
+
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--env_name", help="Name of environment", type=str) #
+    parser.add_argument("--model_name", default='maac',
+                        help="Name of directory to store " +
+                             "model/training contents", type=str)
+    parser.add_argument("--n_rollout_threads", default=12, type=int)
+    parser.add_argument("--buffer_length", default=int(1e6), type=int)
+    parser.add_argument("--n_episodes", default=50000, type=int)
+    parser.add_argument("--episode_length", default=25, type=int)
+    parser.add_argument("--steps_per_update", default=100, type=int)
+    parser.add_argument("--num_updates", default=4, type=int,
+                        help="Number of updates per update cycle")
+    parser.add_argument("--batch_size",
+                        default=1024, type=int,
+                        help="Batch size for training")
+    parser.add_argument("--save_interval", default=1000, type=int)
+    parser.add_argument("--pol_hidden_dim", default=128, type=int)
+    parser.add_argument("--critic_hidden_dim", default=128, type=int)
+    parser.add_argument("--attend_heads", default=4, type=int)
+    parser.add_argument("--pi_lr", default=0.001, type=float)
+    parser.add_argument("--q_lr", default=0.001, type=float)
+    parser.add_argument("--tau", default=0.001, type=float)
+    parser.add_argument("--gamma", default=0.99, type=float)
+    parser.add_argument("--reward_scale", default=100., type=float)
+    parser.add_argument("--use_gpu", action='store_true')
+    parser.add_argument("--save_true", action='store_true')
+
+    config = parser.parse_args()
+    args = ARGS(config)
+    dtype = torch.float
+    torch.set_default_dtype(dtype)
+    cuda = True if torch.cuda.is_available() else False
+    device = torch.device('cuda', index=args.gpu_index) if cuda else torch.device('cpu')
+    if cuda:
+        torch.cuda.set_device(args.gpu_index)
+    discrim_criterion = torch.nn.BCELoss()
+    to_device(device, discrim_criterion)
+    """environment"""
+    rawEnv = make_env(args.env_name, discrete_action=True)
+    env = StandardEnv(rawEnv)
+    numAgents = len(env.observation_space)
+    action_dims = [env.action_space[ai].n for ai in range(numAgents)]
+    observation_dims = [env.observation_space[ai].shape[0] for ai in range(numAgents)]
+    """seeding"""
+    np.random.seed(args.seed)
+    torch.manual_seed(args.seed)
+    env.seed(args.seed)
+    """create save directory"""
+    try:
+        os.makedirs(os.path.abspath(os.path.join(args.expert_traj_path, '..')), exist_ok=True)
+        if args.save_or_not:
+            os.makedirs(args.exper_path, exist_ok=True)
+            os.makedirs(os.path.join(args.exper_path, "logs"), exist_ok=True)
+    except OSError as e:
+        if e.errno != errno.EEXIST:
+            raise
+    """load expert trajectory"""
+    expert_traj = list()
+    for ai in range(numAgents):
+        expert_traj_path_ai = args.expert_traj_path + '_agent_' + str(ai)
+        expert_traj_ai = pd.read_pickle(expert_traj_path_ai).to_numpy()
+        expert_traj_ai.dtype = 'float'
+        expert_traj.append(expert_traj_ai[:args.expert_traj_len, :])
+    """redirecting output"""
+    writer = None
+    if args.save_or_not:
+        sys.stdout = open(os.path.join(args.exper_path, "logs", "log.txt"), 'w')
+        writer = SummaryWriter(os.path.join(args.exper_path, "logs"))
+
+    main_loop()
