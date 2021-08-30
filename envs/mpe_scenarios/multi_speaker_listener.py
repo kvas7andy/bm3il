@@ -84,7 +84,7 @@ class Scenario(BaseScenario):
 
     def benchmark_data(self, agent, world):
         # returns data for benchmarking purposes
-        return reward(agent, world)
+        return self.reward(agent, world)
 
     def calc_rewards(self, world):
         rews = []

@@ -184,6 +184,7 @@ class AttentionSAC(object):
                 logger.add_scalar('agent%i/soft_q' % a_i, (-log_pi / self.reward_scale).mean(), self.niter )
         self.niter += 1
         return rews[0].cpu().numpy(), [cr[0].cpu().numpy() for cr in critic_rets], targets
+    # TODO: rewards for each agent -> ret_c from each agent -> each reward visualize with df_r in notebooks/rendering.ipynb
 
     def update_policies(self, sample, soft=True, logger=None, **kwargs):
         if self.policy_contain_mask:

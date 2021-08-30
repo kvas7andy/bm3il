@@ -11,6 +11,9 @@ class StandardEnv():
         self.action_space = env.action_space
         self.observation_space = env.observation_space
         self.numAgents = len(env.observation_space)
+        self.reward_range = env.reward_range
+        self.metadata = env.metadata
+        self.spec = env.spec
     
     def seed(self,n):
         self.env.seed(n)
@@ -21,8 +24,7 @@ class StandardEnv():
     def reset(self):
         return self.env.reset()
     
-    def render(self, mode='human', close=False):
-        # TODO! we need 'close' in render?
+    def render(self, mode='human'):
         return self.env.render(mode=mode)
     
     def _take_action(self, action):
