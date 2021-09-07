@@ -2,7 +2,6 @@ import argparse
 import torch
 import os
 import gym
-import gym_foo
 import errno
 import sys
 import pickle
@@ -77,7 +76,8 @@ def main_loop():
     # train expert policy
     for i_iter in range(args.max_iter_num):
         """generate multiple trajectories that reach the minimum batch_size"""
-        batch, _, log = agentsInteract.collect_samples(args.min_batch_size, args.episode_length, cuda, running_memory=running_memory)
+        batch, _, log = agentsInteract.collect_samples(args.min_batch_size, args.episode_length, cuda,
+                                                       running_memory=running_memory, out_sample=False)
         t0 = time.time()        
         ret_c, ret_p = update_params(batch, agentModels, agentsInteract)
         t1 = time.time()
@@ -112,9 +112,9 @@ def main_loop():
             data_dic = {'iter': iter_list, 'time': time_list, 'reward': rList, 'Algorithms': label_list}
             reward_dic = {'iter': iter_list}
             for ai in range(numAgents):
-                reward_dic.update({'agent%i_rews' % ai: rSampled,
-                                   'agent%i_qvals' % ai: qSampled,
-                                   'agent%i_TDtarvals' % ai: tarSampled})
+                reward_dic.update({'agent%i_rews' % ai: [rew[ai] for rew in rSampled],
+                                   'agent%i_qvals' % ai: [q[ai] for q in qSampled],
+                                   'agent%i_TDtarvals' % ai: [tar[ai] for tar in tarSampled]})
             df = pd.DataFrame(data_dic)
             df_r = pd.DataFrame(reward_dic)
             if args.save_or_not:
@@ -271,7 +271,7 @@ class ARGS():
         # hyper-parameters for IL
         self.render = False #False
         self.log_interval = 1
-        self.gpu_index = 2
+        self.gpu_index = config.use_gpu_index if config is not None and hasattr(config, 'use_gpu_index') else 0
         self.seed = 1
         # environment params
         self.env_name = config.env_name if config is not None and hasattr(config, 'env_name') and config.env_name is not None \
@@ -321,7 +321,7 @@ if __name__ == '__main__':
     parser.add_argument("--tau", default=0.001, type=float)
     parser.add_argument("--gamma", default=0.99, type=float)
     parser.add_argument("--reward_scale", default=100., type=float)
-    parser.add_argument("--use_gpu", action='store_true')
+    parser.add_argument("--use_gpu_index", default=1, type=int) #action='store_true')
     parser.add_argument("--save_true", action='store_true')
 
     config = parser.parse_args()

@@ -2,7 +2,6 @@ import argparse
 import torch
 import os
 import gym
-import gym_foo
 import errno
 import sys
 import pickle

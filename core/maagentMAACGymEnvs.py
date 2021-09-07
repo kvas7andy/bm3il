@@ -16,12 +16,13 @@ from IPython import display
 def show_state(env, step=0, info=""):
     plt.figure(3)
     plt.clf()
-    plt.imshow(env.render(mode='rgb_array'))
+    state = env.render(mode='rgb_array')
+    plt.imshow(state)
     plt.title("%s | Step: %d %s" % (env._spec.id,step, info))
     plt.axis('off')
     display.clear_output(wait=True)
     display.display(plt.gcf())
-    return None
+    return state
  
 def collect_samples(numAgents, episode_length, pid, queue, env, agentModels, custom_reward,
                     mean_action, render, running_state, min_batch_size):
@@ -70,7 +71,7 @@ def collect_samples(numAgents, episode_length, pid, queue, env, agentModels, cus
 
             if render:
                 show_state(env, step=t, info="")
-                #env.render()
+                env.render()
             #if done:
             #    break
             state = next_state
@@ -148,12 +149,13 @@ class AgentsInteraction:
         else:
             cast = lambda x: Variable(Tensor(x), requires_grad=False)
         obs, acs, rews, next_obs, dones = [], [], [], [], []
-        for sampleAi in batch:
+        for sampleAi in batch: # most of the time, whole running_memory
             obsAi, acsAi, rewsAi, next_obsAi, donesAi = sampleAi
             obs.append(cast(obsAi)[sampleIdx,:])
             acs.append(cast(acsAi)[sampleIdx,:])
             if norm_rews:
-                rewsAi = (cast(rewsAi) - cast(rewsAi).mean()) / cast(rewsAi).std()
+                rewsAi = cast(rewsAi)
+                rewsAi = (rewsAi - rewsAi.mean()) / rewsAi.std()
                 rews.append(rewsAi[sampleIdx])
             else:
                 rews.append(cast(rewsAi)[sampleIdx])
@@ -161,7 +163,7 @@ class AgentsInteraction:
             dones.append(cast(donesAi)[sampleIdx])
         return([obs, acs, rews, next_obs, dones])
     
-    def collect_samples(self, min_batch_size, episode_length, cuda, running_memory = None):
+    def collect_samples(self, min_batch_size, episode_length, cuda, running_memory=None, out_sample=True):
         t_start = time.time()
         thread_batch_size = int(math.floor(min_batch_size / self.num_threads))
         queue = multiprocessing.Queue()
@@ -195,8 +197,10 @@ class AgentsInteraction:
             batch = [running_memory[ai].sample() for ai in range(self.numAgents)]
         else:
             batch = [memory[ai].sample() for ai in range(self.numAgents)]
-        sample = self.batch2TensorSample(batch, cuda)
 
+        sample = None
+        if out_sample:
+            sample = self.batch2TensorSample(batch, cuda)
         if self.num_threads > 1:
             log_list = [log] + worker_logs
             log = merge_log(log_list)

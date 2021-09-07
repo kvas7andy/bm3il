@@ -78,11 +78,12 @@ class AttentionSAC(object):
             actions: List of actions for each agent
         """
         if masks is not None:
-            return [a.step(obs, mask, explore=explore) for a, obs, mask in zip(self.agents,
+            output =  [a.step(obs, mask, explore=explore) for a, obs, mask in zip(self.agents,
                                                                    observations, masks)]
         else:
-            return [a.step(obs, explore=explore) for a, obs in zip(self.agents,
+            output =  [a.step(obs, explore=explore) for a, obs in zip(self.agents,
                                                                    observations)]
+        return output
 
     def update_critic(self, sample, soft=True, logger=None, **kwargs):
         """
@@ -163,11 +164,9 @@ class AttentionSAC(object):
         trgt_critic_in = list(zip(next_obs, next_acs))
         critic_in = list(zip(obs, acs))
         next_qs = self.target_critic(trgt_critic_in)
-        critic_rets = self.critic(critic_in, regularize=True,
-                                  logger=logger, niter=self.niter)
-        q_loss = 0
+        critic_rets = self.critic(critic_in, logger=logger, niter=self.niter)
         targets = []
-        for a_i, nq, log_pi, (pq, regs) in zip(range(self.nagents), next_qs,
+        for a_i, nq, log_pi, pq in zip(range(self.nagents), next_qs,
                                                next_log_pis, critic_rets):
             target_q = (rews[a_i].view(-1, 1) +
                         self.gamma * nq *
@@ -175,16 +174,14 @@ class AttentionSAC(object):
             if soft:
                 target_q -= log_pi / self.reward_scale
             targets.append(target_q.cpu().numpy())
-            # q_loss += MSELoss(pq, target_q.detach())
-            # for reg in regs:
-            #     q_loss += reg  # regularizing attention
+
             if logger is not None:
                 logger.add_scalar('agent%i/targets_yi' % a_i, pq.mean(),self.niter)
                 logger.add_scalar('agent%i/q_values_mean' % a_i, target_q.mean(), self.niter)
                 logger.add_scalar('agent%i/soft_q' % a_i, (-log_pi / self.reward_scale).mean(), self.niter )
         self.niter += 1
-        return rews[0].cpu().numpy(), [cr[0].cpu().numpy() for cr in critic_rets], targets
-    # TODO: rewards for each agent -> ret_c from each agent -> each reward visualize with df_r in notebooks/rendering.ipynb
+        return [rew.cpu().numpy() for rew in rews], [cr.cpu().numpy() for cr in critic_rets], targets
+            # not cr[0] because we have no regularizer as output
 
     def update_policies(self, sample, soft=True, logger=None, **kwargs):
         if self.policy_contain_mask:

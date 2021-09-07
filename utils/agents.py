@@ -50,7 +50,9 @@ class AttentionAgent(object):
                 'target_policy': self.target_policy.state_dict(),
                 'policy_optimizer': self.policy_optimizer.state_dict()}
 
-    def load_params(self, params):
+    def load_params(self, params, device='cpu'):
         self.policy.load_state_dict(params['policy'])
+        self.policy.to(device)
         self.target_policy.load_state_dict(params['target_policy'])
+        self.target_policy.to(device)
         self.policy_optimizer.load_state_dict(params['policy_optimizer'])
