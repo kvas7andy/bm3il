@@ -48,11 +48,14 @@ def collect_samples(numAgents, episode_length, pid, queue, env, agentModels, cus
         for t in range(episode_length):
             #print('t:{:.1f}\tnum_steps:{:.1f}\tmin_batch_size:{:.1f}'.format(t,num_steps,min_batch_size))
             # tbd, add .to(dtype)
-            torch_obs = [tensor(st).to(dtype).unsqueeze(0) for st in state]
-            
-            with torch.no_grad():
-                torch_action = agentModels.step(torch_obs, explore=True)
-                action = [ac.data.numpy()[0] for ac in torch_action]
+            if  agentModels.custom_policies is not None:
+                action = agentModels.custom_policies(state)
+            else:
+                torch_obs = [tensor(st).to(dtype).unsqueeze(0) for st in state]
+                with torch.no_grad():
+                    torch_action = agentModels.step(torch_obs, explore=True)
+                    action = [ac.data.numpy()[0] for ac in torch_action]
+
             next_state, reward, done, _ = env.step(action)
             #if not num_steps % 10:
                 #print(reward)

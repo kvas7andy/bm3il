@@ -138,53 +138,6 @@ class AttentionSAC(object):
             logger.add_scalar('losses/q_reguls', reguls, self.niter)
         self.niter += 1
 
-    def value_critic(self, sample, soft=True, logger=None, episode_length=50, **kwargs):
-        """
-        Update central critic for all agents
-        """
-        if self.policy_contain_mask:
-            obs, acs, masks, rews, next_obs, dones = sample# Transition(state=(s_n1, s_n2,..., s_n{batch_size},
-                                                                #action =  (a_n1, a_n2,..., a_n{batch_size}), ... )
-        else:
-            obs, acs, rews, next_obs, dones = sample
-        # Q loss
-        next_acs = []
-        next_log_pis = []
-        if self.policy_contain_mask:
-            for pi, mask, ob in zip(self.target_policies, masks, next_obs):
-                curr_next_ac, curr_next_log_pi = pi(ob, mask, return_log_pi=True)
-                next_acs.append(curr_next_ac)
-                next_log_pis.append(curr_next_log_pi)
-        else:
-            for pi, ob in zip(self.target_policies, next_obs):
-                curr_next_ac, curr_next_log_pi = pi(ob, return_log_pi=True)
-                next_acs.append(curr_next_ac)
-                next_log_pis.append(curr_next_log_pi)
-        trgt_critic_in = list(zip(next_obs, next_acs))
-        critic_in = list(zip(obs, acs))
-        next_qs = self.target_critic(trgt_critic_in)
-        critic_rets = self.critic(critic_in, regularize=True,
-                                  logger=logger, niter=self.niter)
-        q_loss = 0
-        targets = []
-        for a_i, nq, log_pi, (pq, regs) in zip(range(self.nagents), next_qs,
-                                               next_log_pis, critic_rets):
-            target_q = (rews[a_i].view(-1, 1) +
-                        self.gamma * nq *
-                        (1 - dones[a_i].view(-1, 1)))
-            if soft:
-                target_q -= log_pi / self.reward_scale
-            targets.append(target_q.cpu().numpy())
-            # q_loss += MSELoss(pq, target_q.detach())
-            # for reg in regs:
-            #     q_loss += reg  # regularizing attention
-            if logger is not None:
-                logger.add_scalar('agent%i/targets_yi' % a_i, pq.mean(),self.niter)
-                logger.add_scalar('agent%i/q_values_mean' % a_i, target_q.mean(), self.niter)
-                logger.add_scalar('agent%i/soft_q' % a_i, (-log_pi / self.reward_scale).mean(), self.niter )
-        self.niter += 1
-        return rews[0].cpu().numpy(), [cr[0].cpu().numpy() for cr in critic_rets], targets
-
     def update_policies(self, sample, soft=True, logger=None, **kwargs):
         if self.policy_contain_mask:
             obs, acs, masks, rews, next_obs, dones = sample

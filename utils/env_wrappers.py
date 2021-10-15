@@ -5,7 +5,7 @@ import numpy as np
 from multiprocessing import Process, Pipe
 from baselines.common.vec_env import VecEnv, CloudpickleWrapper
 
-class StandardEnv():
+class StandardEnv(object):
     def __init__(self,env):
         self.env = env
         self.action_space = env.action_space
@@ -14,7 +14,14 @@ class StandardEnv():
         self.reward_range = env.reward_range
         self.metadata = env.metadata
         self.spec = env.spec
-    
+        self.custom_policies = env.custom_policies
+
+    def __getattr__(self, name): # if there is no such name
+        if name in self.env.__dict__:
+            return self.env.__getattribute__(name)
+        else:
+            raise AttributeError("No such item in class 'multiagentenv': ", name)
+
     def seed(self,n):
         self.env.seed(n)
     

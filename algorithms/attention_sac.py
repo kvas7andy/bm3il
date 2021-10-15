@@ -60,6 +60,10 @@ class AttentionSAC(object):
         self.trgt_critic_dev = 'cpu'  # device for target critics
         self.niter = 0
         self.policy_contain_mask = policy_contain_mask
+        if 'custom_policies' in kwargs.keys():
+            self.custom_policies = kwargs['custom_policies']
+        else:
+            raise ValueError("Either init not from env OR no error with 'custom_policies'")
 
     @property
     def policies(self):
@@ -77,11 +81,13 @@ class AttentionSAC(object):
         Outputs:
             actions: List of actions for each agent
         """
+        if self.custom_policies is not None:
+            return self.custom_policies(observations)
         if masks is not None:
-            output =  [a.step(obs, mask, explore=explore) for a, obs, mask in zip(self.agents,
+            output = [a.step(obs, mask, explore=explore) for a, obs, mask in zip(self.agents,
                                                                    observations, masks)]
         else:
-            output =  [a.step(obs, explore=explore) for a, obs in zip(self.agents,
+            output = [a.step(obs, explore=explore) for a, obs in zip(self.agents,
                                                                    observations)]
         return output
 
@@ -360,6 +366,7 @@ class AttentionSAC(object):
                      'agent_init_params': agent_init_params,
                      'sa_size': sa_size,
                      'policy_contain_mask': policy_contain_mask}
+        init_dict.update({'custom_policies': env.custom_policies})
         instance = cls(**init_dict)
         instance.init_dict = init_dict
         return instance
@@ -370,6 +377,7 @@ class AttentionSAC(object):
         Instantiate instance of this class from file created by 'save' method
         """
         save_dict = torch.load(filename, map_location=device)
+        save_dict['init_dict'].update({'custom_policies': None})
         instance = cls(**save_dict['init_dict'])
         instance.init_dict = save_dict['init_dict']
         for a, params in zip(instance.agents, save_dict['agent_params']):

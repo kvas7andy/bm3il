@@ -58,7 +58,8 @@ def main_loop():
     if args.load_checkpoint:
         agentModels = AttentionSAC.init_from_save(args.checkpoint_path, load_critic=True)
     agentModels.prep_rollouts(device='cpu')
-    agentsInteract = AgentsInteraction(env, numAgents, agentModels, device, running_state=None, render=args.render, num_threads=args.num_threads)
+    agentsInteract = AgentsInteraction(env, numAgents, agentModels, device, running_state=None, render=args.render,
+                                       num_threads=args.num_threads)
     time_list = list()
     avg_time_list = list()
     iter_list = list()
@@ -73,9 +74,12 @@ def main_loop():
     max_reward = -1e10
     flush_flag = False
     t_start = time.time()
+
+    if agentModels.custom_policies is not None:
+        args.max_iter_num = 0
     # train expert policy
     for i_iter in range(args.max_iter_num):
-        """generate multiple trajectories that reach the minimum batch_size"""
+        """generate m   wultiple trajectories that reach the minimum batch_size"""
         batch, _, log = agentsInteract.collect_samples(args.min_batch_size, args.episode_length, cuda,
                                                        running_memory=running_memory, out_sample=False)
         t0 = time.time()        
@@ -180,80 +184,8 @@ def main_loop():
         exp_traj = np.concatenate((qualify_states[ai],qualify_actions[ai]),axis=1)
         expert_traj_path_ai = args.expert_traj_path + '_agent_' + str(ai)
         exp_traj_df = pd.DataFrame(exp_traj)
-        if args.save_or_not:
-            exp_traj_df.to_pickle(expert_traj_path_ai)
-
-
-def custom_model_loop():
-    """create agent (including actor and critic)"""
-    agentModels = AttentionSAC.init_from_env(env,
-                                             tau=args.tau,
-                                             pi_lr=args.pi_lr,
-                                             q_lr=args.q_lr,
-                                             gamma=args.gamma,
-                                             pol_hidden_dim=args.pol_hidden_dim,
-                                             critic_hidden_dim=args.critic_hidden_dim,
-                                             attend_heads=args.attend_heads,
-                                             reward_scale=args.reward_scale)
-    if args.load_checkpoint:
-        agentModels = AttentionSAC.init_from_save(args.checkpoint_path, load_critic=True)
-    agentModels.prep_rollouts(device='cpu')
-    agentsInteract = AgentsInteraction(env, numAgents, agentModels, device, running_state=None, render=args.render,
-                                       num_threads=args.num_threads)
-    rList = list()
-
-    # save training epoch
-    rLarge = np.array([np.average(x) for x in rList[-10:]])
-    rMean = np.mean(rLarge[np.argsort(rLarge)[-5:]])
-    rStd = np.abs(rMean)
-
-    # collect expert traj
-    print('collect expert trajectories')
-    qualify_states = [np.zeros((1, env.observation_space[ai].shape[0])) for ai in range(numAgents)]
-    qualify_actions = [np.zeros((1, env.action_space[ai].n)) for ai in range(numAgents)]
-    qualify_rewards = [np.zeros((1)) for _ in range(numAgents)]
-    while qualify_states[0].shape[0] < args.expert_traj_len:
-        batch, _, log = agentsInteract.collect_samples(args.collect_expert_samples, args.episode_length, cuda)
-        dones = np.stack(batch[0].dones)
-        r_mean = np.mean(log['reward_list'])
-        r_std = np.std(log['reward_list'])
-        r_dif = max(np.mean(log['max_reward']) - r_mean, r_mean - np.mean(log['min_reward']))
-        print(
-            'Traj_len {}\tConstrain_rMean {:.2f}\trBound {:.2f}\tR_avg {:.2f} +- {:.2f}\t R_std {:.2f}\tEpisodes {:.2f}\tSteps {:.2f}'.format(
-                qualify_states[0].shape[0], rMean, rStd, r_mean, r_dif, r_std, \
-                log['num_episodes'], log['num_steps']))
-        reward_list = [np.average(x) for x in log['reward_list']]
-        qualify_index = [r < rMean + rStd and r > rMean - rStd for r in reward_list]
-        # start_index = np.concatenate(([0], np.where(dones == 1)[0] + 1))
-        start_index = np.arange(len(batch[0][0]), step=args.episode_length)
-        for ai in range(numAgents):
-            states = np.stack(batch[ai].state)
-            actions = np.stack(batch[ai].action)
-            if len(actions.shape) == 1:
-                actions = np.expand_dims(actions, -1)
-            qualify_states[ai] = np.concatenate((qualify_states[ai], states), axis=0)
-            qualify_actions[ai] = np.concatenate((qualify_actions[ai], actions), axis=0)
-            qualify_rewards[ai] = np.concatenate((qualify_rewards[ai], reward_list), axis=0)
-
-    # save expert traj
-    for ai in range(numAgents):
-        qualify_states[ai] = qualify_states[ai][1:, :]
-        qualify_actions[ai] = qualify_actions[ai][1:, :]
-        qualify_rewards[ai] = qualify_rewards[ai][1:]
-    rUp = np.asarray(qualify_rewards).max() - np.asarray(qualify_rewards).mean()
-    rBot = np.asarray(qualify_rewards).mean() - np.asarray(qualify_rewards).min()
-    rBound = np.max((rUp, rBot))
-    print('Constrain rMean {:.2f}, rBound {:.2f}, result rMean {:.2f}, rBound {:.2f}, rStd {:.2f}, traj len {}' \
-          .format(rMean, rStd, np.mean(np.asarray(qualify_rewards)), rBound, np.std(np.asarray(qualify_rewards)),
-                  qualify_states[0].shape[0]))
-    for ai in range(numAgents):
-        if len(qualify_actions[ai].shape) < len(qualify_states[ai].shape):
-            qualify_actions[ai] = np.expand_dims(qualify_actions[ai], -1)
-        exp_traj = np.concatenate((qualify_states[ai], qualify_actions[ai]), axis=1)
-        expert_traj_path_ai = args.expert_traj_path + '_agent_' + str(ai)
-        exp_traj_df = pd.DataFrame(exp_traj)
-        if args.save_or_not:
-            exp_traj_df.to_pickle(expert_traj_path_ai)
+        #if args.save_or_not:
+        exp_traj_df.to_pickle(expert_traj_path_ai)
 
 
 class ARGS():
@@ -280,7 +212,7 @@ class ARGS():
         self.reset_memory_interval = 10
         self.min_batch_size = 800 #4000
         self.sample_size = 800 # number of samples for an update
-        self.num_threads = 8 #4
+        self.num_threads = config.num_threads if config is not None and hasattr(config, 'num_threads') else 8 #4
         self.generator_epochs = 10
         self.max_iter_num = 6000 #1500 #30 #500 #3000
         self.load_checkpoint = False
@@ -292,16 +224,17 @@ class ARGS():
         self.exper_path = os.path.join(proj_direc, "buildILGymEnvsRT/data", self.env_name, "collect_samples", dt_string)
         self.checkpoint_path = os.path.join(self.exper_path, "checkpoint_vanilaMAAC")
         self.expert_traj_path = os.path.join(self.exper_path, "exp_traj2" + ".pkl")
-        self.description = 'vanilaMAAC'
-        self.save_data_path = os.path.join(self.exper_path, self.env_name + "_vanilaMAAC.pkl")
+        self.description = config.model_name if config is not None and hasattr(config, 'model_name') and config.model_name is not None \
+                else 'vanilaMAAC'
+        self.save_data_path = os.path.join(self.exper_path, self.env_name + "_"+ self.description +".pkl")
         self.save_or_not = config.save_true if config is not None and hasattr(config, 'save_true') else False
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("--env_name", help="Name of environment", type=str)
+    parser.add_argument("--env_name", help="Name of environment", type=str) # state this!
     parser.add_argument("--model_name", default='maac',
                         help="Name of directory to store " +
-                             "model/training contents", type=str)
+                             "model/training contents", type=str) # state this!
     parser.add_argument("--n_rollout_threads", default=12, type=int)
     parser.add_argument("--buffer_length", default=int(1e6), type=int)
     parser.add_argument("--n_episodes", default=50000, type=int)
@@ -321,8 +254,10 @@ if __name__ == '__main__':
     parser.add_argument("--tau", default=0.001, type=float)
     parser.add_argument("--gamma", default=0.99, type=float)
     parser.add_argument("--reward_scale", default=100., type=float)
-    parser.add_argument("--use_gpu_index", default=1, type=int) #action='store_true')
-    parser.add_argument("--save_true", action='store_true')
+    parser.add_argument("--num_threads", default=8, type=int,
+                        help="Number of threads for collecting rollouts")
+    parser.add_argument("--use_gpu_index", default=1, type=int) #action='store_true') # state this!
+    parser.add_argument("--save_true", action='store_true') # state this!
 
     config = parser.parse_args()
     args = ARGS(config)
@@ -360,10 +295,7 @@ if __name__ == '__main__':
         print(vars(args))
         print(" ".join(sys.argv))
 
-    if config.model_name == 'maac':
-        main_loop()
-    else:
-        custom_model_loop(config.model_name)
+    main_loop()
     # vdisplay.stop()
 
 

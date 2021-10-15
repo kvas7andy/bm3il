@@ -41,23 +41,30 @@ def make_env(scenario_name, benchmark=False, discrete_action=False):
     # create world
     world = scenario.make_world()
     # create multiagent environment
+    post_step = None
+    custom_policies = None
     if hasattr(scenario, 'post_step'):
         post_step = scenario.post_step
-    else:
-        post_step = None
+    if hasattr(scenario, 'custom_policies'):
+        custom_policies = scenario.custom_policies
+
     if benchmark:        
         env = MultiAgentEnv(world, reset_callback=scenario.reset_world,
                             reward_callback=scenario.reward,
                             observation_callback=scenario.observation,
                             post_step_callback=post_step, # to be commented in latest gym version
                             info_callback=scenario.benchmark_data,
-                            discrete_action=discrete_action #
-                           )
+                            discrete_action=discrete_action, #
+                            custom_policies = lambda x: custom_policies(x, env.world) if custom_policies is not None \
+                            else None
+                            )
     else:
         env = MultiAgentEnv(world, reset_callback=scenario.reset_world,
                             reward_callback=scenario.reward,
                             observation_callback=scenario.observation,
                             post_step_callback=post_step, #
-                            discrete_action=discrete_action #
+                            discrete_action=discrete_action, #
+                            custom_policies = lambda x: custom_policies(x, env.world) if custom_policies is not None \
+                            else None
                            )
     return env
