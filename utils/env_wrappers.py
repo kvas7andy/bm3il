@@ -10,7 +10,7 @@ class StandardEnv(object):
         self.env = env
         self.action_space = env.action_space
         self.observation_space = env.observation_space
-        self.numAgents = len(env.observation_space)
+        self.numAgents = env.n
         self.reward_range = env.reward_range
         self.metadata = env.metadata
         self.spec = env.spec

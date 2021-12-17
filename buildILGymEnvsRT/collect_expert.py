@@ -58,6 +58,7 @@ def main_loop():
     if args.load_checkpoint:
         agentModels = AttentionSAC.init_from_save(args.checkpoint_path, load_critic=True)
     agentModels.prep_rollouts(device='cpu')
+    numAgents = env.n
     agentsInteract = AgentsInteraction(env, numAgents, agentModels, device, running_state=None, render=args.render,
                                        num_threads=args.num_threads)
     time_list = list()
@@ -76,10 +77,10 @@ def main_loop():
     t_start = time.time()
 
     if agentModels.custom_policies is not None:
-        args.max_iter_num = 0
+         args.max_iter_num = 0
     # train expert policy
     for i_iter in range(args.max_iter_num):
-        """generate m   wultiple trajectories that reach the minimum batch_size"""
+        """generate multiple trajectories that reach the minimum batch_size"""
         batch, _, log = agentsInteract.collect_samples(args.min_batch_size, args.episode_length, cuda,
                                                        running_memory=running_memory, out_sample=False)
         t0 = time.time()        
@@ -138,7 +139,7 @@ def main_loop():
     rStd = np.abs(rMean)
     
     
-    
+    numAgents = len(env.observation_space)  # all agents
     # collect expert traj
     print('collect expert trajectories')
     qualify_states = [np.zeros((1,env.observation_space[ai].shape[0])) for ai in range(numAgents)]
@@ -270,7 +271,7 @@ if __name__ == '__main__':
     """environment"""
     rawEnv = make_env(args.env_name, discrete_action=True)
     env = StandardEnv(rawEnv)
-    numAgents = len(env.observation_space)
+    numAgents = env.n  # only learnable agents
     # state_dim = env.observation_space[0].shape[0]
     # is_disc_action = len(env.action_space[0].shape) == 0
     # action_dim = env.action_space[0].n if is_disc_action else env.action_space.shape[0]
@@ -280,8 +281,8 @@ if __name__ == '__main__':
     env.seed(args.seed)
     """create save directory"""
     try:
-        os.makedirs(os.path.abspath(os.path.join(args.expert_traj_path, '..')), exist_ok=True)
         if args.save_or_not:
+            os.makedirs(os.path.abspath(os.path.join(args.expert_traj_path, '..')), exist_ok=True)
             os.makedirs(args.exper_path, exist_ok=True)
             os.makedirs(os.path.join(args.exper_path, "logs"), exist_ok=True)
     except OSError as e:

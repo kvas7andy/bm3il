@@ -20,7 +20,7 @@ class Scenario(BaseScenario):
         num_landmarks = 3
         world.collaborative = True
         world.labeling = True
-        world.custom_policy = hasattr(self, "custom_policies")
+        world.custom_policy = False # - seems for action callback, so False == hasattr(self, "custom_policies")
         # add agents
         world.agents = [Agent() for i in range(num_agents)]
         for i, agent in enumerate(world.agents):
@@ -28,6 +28,7 @@ class Scenario(BaseScenario):
             agent.collide = True
             agent.silent = True
             agent.size = 0.15
+            agent.action_callback = None # self.custom_policy
         # add landmarks
         world.landmarks = [Landmark() for i in range(num_landmarks)]
         for i, landmark in enumerate(world.landmarks):
@@ -139,10 +140,14 @@ class Scenario(BaseScenario):
             if other is agent: continue
             comm.append(other.state.c)
             other_pos.append(other.state.p_pos - agent.state.p_pos)
-        # {0, 1} - vel, {2, 3} - pos, [{4, 5}, {6, 7}, {8, 9}] - ent_pos, [{10, 11}, {12, 13}] - other_pos, [{14, 15},{16, 17}]
-        return np.concatenate([agent.state.p_vel] + [agent.state.p_pos] + entity_pos + other_pos + comm)
+        if world.labeling:
+            # {0, 1} - vel, {2, 3} - pos, [{4, 5}, {6, 7}, {8, 9}] - ent_pos, [{10, 11}, {12, 13}] - other_pos, [{14, 15},{16, 17}]
+            return np.concatenate([agent.state.p_vel] + [agent.state.p_pos] + entity_pos + other_pos + comm +
+                                  [np.array(agent.label).reshape(-1)])
+        else:
+            # {0, 1} - vel, {2, 3} - pos, [{4, 5}, {6, 7}, {8, 9}] - ent_pos, [{10, 11}, {12, 13}] - other_pos, [{14, 15},{16, 17}]
+            return np.concatenate([agent.state.p_vel] + [agent.state.p_pos] + entity_pos + other_pos + comm)
 
-        ### TODO make agent.action_calback(action, self) in all world.agents
     def custom_policies(self, obs_n, world):
         """
         Custom policies output
@@ -180,3 +185,43 @@ class Scenario(BaseScenario):
             #action[np.random.randint(action.shape[0])] = 1
             action_n += [action]
         return action_n
+
+    ### TODO make agent.action_callback(agent, self) in all world.agents # multiagent/core.py
+    def custom_policy(self, agent, world):
+        """
+        Custom policy output
+        Out: list of numpy arrays of 1 dimension equal to (2*world.dim_p + 1)
+        """
+        x, y = agent.state.p_pos
+        # ent_pos
+        entity_pos = []
+        for entity in world.landmarks:  # world.entities:
+            entity_pos.append(entity.state.p_pos - agent.state.p_pos)
+        ent_pos = np.array(entity_pos).reshape(-1, 2)
+        left_i = np.argmin(ent_pos - agent.state.p_pos, axis=0)[0]  # min x
+        right_i = np.argmax(ent_pos - agent.state.p_pos, axis=0)[0]  # max x
+        if agent.label == 0: # leftmost landmark
+            ent_i = left_i
+        elif agent.label == 2: # rightmost landmark
+            ent_i = right_i
+        else:
+            ent_i = (set((0, 1, 2)) - set((left_i, right_i))).pop()
+        vec_direct = ent_pos[ent_i]
+
+        # construct action
+        action = np.zeros(world.dim_p * 2 + 1)
+        # [idle, right, left, up, down]
+        if abs(vec_direct[0]) > abs(vec_direct[1]): # for x: go left or go right
+            if vec_direct[0] > 0: # go right
+                action[1] = 1
+            else: # go left
+                action[2] = 1
+        else:
+            if vec_direct[1] > 0: # go up
+                action[3] = 1
+            else:  # go down
+                action[4] = 1
+
+        return action
+
+        # set env action for a particular agent

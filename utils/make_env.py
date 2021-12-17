@@ -55,7 +55,7 @@ def make_env(scenario_name, benchmark=False, discrete_action=False):
                             post_step_callback=post_step, # to be commented in latest gym version
                             info_callback=scenario.benchmark_data,
                             discrete_action=discrete_action, #
-                            custom_policies = lambda x: custom_policies(x, env.world) if custom_policies is not None \
+                            custom_policies = (lambda x: custom_policies(x, env.world)) if custom_policies is not None \
                             else None
                             )
     else:
@@ -64,7 +64,7 @@ def make_env(scenario_name, benchmark=False, discrete_action=False):
                             observation_callback=scenario.observation,
                             post_step_callback=post_step, #
                             discrete_action=discrete_action, #
-                            custom_policies = lambda x: custom_policies(x, env.world) if custom_policies is not None \
+                            custom_policies = (lambda x: custom_policies(x, env.world)) if custom_policies is not None \
                             else None
                            )
     return env
