@@ -65,6 +65,11 @@ class AttentionSAC(object):
         else:
             raise ValueError("Either init not from env OR no error with 'custom_policies'")
 
+        if 'labeling' in kwargs.keys():
+            self.labeling = kwargs['labeling']
+        else:
+            raise ValueError("Either init not from env OR no error with 'labeling'")
+
     @property
     def policies(self):
         return [a.policy for a in self.agents]
@@ -82,7 +87,13 @@ class AttentionSAC(object):
             actions: List of actions for each agent
         """
         if self.custom_policies is not None:
-            return self.custom_policies(observations)
+            observations = [obs.data.numpy()[0] for obs in observations]
+            return [torch.tensor(action_ai).unsqueeze(0) for action_ai in self.custom_policies(observations)]
+        if self.labeling is not None:
+            label_size = 1 #
+            if self.labeling is True:
+                label_size = 1 #
+                label, state = [ag_st[-label_size:] for ag_st in state], [ag_st[:-label_size] for ag_st in state]
         if masks is not None:
             output = [a.step(obs, mask, explore=explore) for a, obs, mask in zip(self.agents,
                                                                    observations, masks)]
@@ -367,6 +378,7 @@ class AttentionSAC(object):
                      'sa_size': sa_size,
                      'policy_contain_mask': policy_contain_mask}
         init_dict.update({'custom_policies': env.custom_policies})
+        init_dict.update({'labeling': env.labeling})
         instance = cls(**init_dict)
         instance.init_dict = init_dict
         return instance

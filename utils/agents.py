@@ -18,8 +18,7 @@ class AttentionAgent(object):
         self.policy = DiscretePolicy(num_in_pol, num_out_pol,
                                      hidden_dim=hidden_dim,
                                      onehot_dim=onehot_dim)
-        self.target_policy = DiscretePolicy(num_in_pol,
-                                            num_out_pol,
+        self.target_policy = DiscretePolicy(num_in_pol, num_out_pol,
                                             hidden_dim=hidden_dim,
                                             onehot_dim=onehot_dim)
 

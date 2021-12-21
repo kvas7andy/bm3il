@@ -171,9 +171,9 @@ def main_loop():
                     
     # save expert traj
     for ai in range(numAgents):
-        qualify_states[ai] = qualify_states[ai][1:,:]
-        qualify_actions[ai] = qualify_actions[ai][1:,:]
-        qualify_rewards[ai] = qualify_rewards[ai][1:]
+        qualify_states[ai] = qualify_states[ai][1:,:] # erase  zeros
+        qualify_actions[ai] = qualify_actions[ai][1:,:] # erase  zeros
+        qualify_rewards[ai] = qualify_rewards[ai][1:] # erase  zeros
     rUp = np.asarray(qualify_rewards).max()-np.asarray(qualify_rewards).mean()
     rBot = np.asarray(qualify_rewards).mean()-np.asarray(qualify_rewards).min()
     rBound = np.max((rUp,rBot))

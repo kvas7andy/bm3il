@@ -15,6 +15,7 @@ class StandardEnv(object):
         self.metadata = env.metadata
         self.spec = env.spec
         self.custom_policies = env.custom_policies
+        self.labeling = env.labeling
 
     def __getattr__(self, name): # if there is no such name
         if name in self.env.__dict__:
